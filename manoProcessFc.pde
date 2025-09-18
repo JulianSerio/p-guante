@@ -29,9 +29,7 @@ float[] minValores = {300, 300, 300, 300, 300}; // Valores mínimos para cada se
 float[] maxValores = {700, 700, 700, 700, 700}; // Valores máximos para cada sensor
 
 // Sistema de colisión con pelota
-PVector posicionPelota = new PVector(0, -40, -25);
-float radioPelota = 40;
-color colorPelota = color(0, 150, 255);
+Pelota pelota;
 boolean[] colisiones = new boolean[5]; // Para cada dedo
 int[] estadosVibracion = {0, 0, 0, 0, 0}; // Estados para enviar a Arduino
 
@@ -45,6 +43,8 @@ void setup() {
   dedos[2] = new Dedo(0, -15, 40, 43, 28, 20, 10, 0);      // Medio
   dedos[3] = new Dedo(25, -15, 37, 40, 26, 19, 9, 0);      // Anular
   dedos[4] = new Dedo(45, -10, 28, 30, 20, 15, 7, 5);      // Meñique
+  pelota = new Pelota(new PVector(0, -40, -25), 40, color(0, 150, 255), color(255, 100, 100));
+
 
   // Configurar comunicación serial
   println("Puertos seriales disponibles:");
@@ -132,42 +132,24 @@ void actualizarDedos() {
 }
 
 void dibujarPelota() {
-  pushMatrix();
-  translate(posicionPelota.x, posicionPelota.y, posicionPelota.z);
-  
-  // Cambiar color si hay colisión
-  boolean algunaColision = false;
-  for (boolean colision : colisiones) {
-    if (colision) {
-      algunaColision = true;
+  boolean hayColision = false;
+  for (boolean col : colisiones) {
+    if (col) {
+      hayColision = true;
       break;
     }
   }
-  
-  if (algunaColision) {
-    fill(255, 100, 100); // Rojo cuando hay colisión
-  } else {
-    fill(colorPelota); // Color normal
-  }
-  
-  noStroke();
-  sphere(radioPelota);
-  popMatrix();
+  pelota.display(hayColision);
 }
 
 void verificarColisiones() {
-  // Verificar colisión para cada dedo
   for (int i = 0; i < dedos.length; i++) {
-    PVector puntaDedo = calcularPuntaDedo(dedos[i]);
-    float distancia = dist(
-      puntaDedo.x, puntaDedo.y, puntaDedo.z,
-      posicionPelota.x, posicionPelota.y, posicionPelota.z
-    );
-    
-    colisiones[i] = (distancia < radioPelota + 10); // Pequeño margen
+    PVector punta = calcularPuntaDedo(dedos[i]);
+    colisiones[i] = pelota.colisionaCon(punta);
     estadosVibracion[i] = colisiones[i] ? 1 : 0;
   }
 }
+
 
 PVector calcularPuntaDedo(Dedo dedo) {
   // Calcular la posición de la punta del dedo en el espacio mundial
@@ -243,6 +225,42 @@ void dibujarMuñeca() {
   rotateX(0);
   cylinderRecto(20, 40);
   popMatrix();
+}
+
+// -----------------------------------------
+// CLASE PELOTA
+// -----------------------------------------
+class Pelota {
+  PVector posicion;
+  float radio;
+  color colorBase;
+  color colorColision;
+
+  Pelota(PVector posicion, float radio, color colorBase, color colorColision) {
+    this.posicion = posicion.copy();
+    this.radio = radio;
+    this.colorBase = colorBase;
+    this.colorColision = colorColision;
+  }
+
+  void display(boolean hayColision) {
+    pushMatrix();
+    translate(posicion.x, posicion.y, posicion.z);
+    fill(hayColision ? colorColision : colorBase);
+    noStroke();
+    sphere(radio);
+    popMatrix();
+  }
+
+  boolean colisionaCon(PVector punto) {
+    float dx = punto.x - posicion.x;
+    float dy = punto.y - posicion.y;
+    float dz = punto.z - posicion.z;
+  
+    float distancia = sqrt(dx * dx + dy * dy + dz * dz);
+    return distancia <= radio;
+  }
+
 }
 
 // -----------------------------------------
@@ -438,22 +456,22 @@ void keyPressed() {
   
   // Teclas para mover la pelota (teclas de dirección + Shift)
   if (keyCode == UP && (keyEvent.isShiftDown())) {
-    posicionPelota.y -= 10;
+    pelota.posicion.y -= 10;
   }
   if (keyCode == DOWN && (keyEvent.isShiftDown())) {
-    posicionPelota.y += 10;
+    pelota.posicion.y += 10;
   }
   if (keyCode == LEFT && (keyEvent.isShiftDown())) {
-    posicionPelota.x -= 10;
+    pelota.posicion.x -= 10;
   }
   if (keyCode == RIGHT && (keyEvent.isShiftDown())) {
-    posicionPelota.x += 10;
+    pelota.posicion.x += 10;
   }
   if ((key == 'z' || key == 'Z') && (keyEvent.isShiftDown())) {
-    posicionPelota.z -= 10;
+    pelota.posicion.z -= 10;
   }
   if ((key == 'x' || key == 'X') && (keyEvent.isShiftDown())) {
-    posicionPelota.z += 10;
+    pelota.posicion.z += 10;
   }
 }
 
@@ -484,7 +502,7 @@ void serialEvent(Serial p) {
 void mouseDragged() {
   if (mouseButton == RIGHT) {
     // Mover la pelota con el botón derecho del ratón
-    posicionPelota.x += (mouseX - pmouseX) * 0.5;
-    posicionPelota.y += (mouseY - pmouseY) * 0.5;
+    pelota.posicion.x += (mouseX - pmouseX) * 0.5;
+    pelota.posicion.y += (mouseY - pmouseY) * 0.5;
   }
 }
